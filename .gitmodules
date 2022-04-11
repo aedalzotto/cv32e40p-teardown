@@ -1,0 +1,3 @@
+[submodule "cv32e40p"]
+	path = cv32e40p
+	url = git@github.com:openhwgroup/cv32e40p.git
