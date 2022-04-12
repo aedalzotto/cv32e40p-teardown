@@ -1,60 +1,69 @@
-# "Constants"
+BANNER=*******************************************************************************************
+
 MAKE           = make
-CORE_V_VERIF   = $(abspath $(MAKE_PATH))
 WAVES          = 0
+RISCV            = $(CV_SW_TOOLCHAIN)
+MAKE_PATH     := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
+CORE_V_VERIF   = $(abspath $(MAKE_PATH))
+
+ifndef CV_SW_MARCH
+ifdef  TEST_CV_SW_MARCH
+CV_SW_MARCH = $(TEST_CV_SW_MARCH)
+else
+ifdef  CFG_CV_SW_MARCH
+CV_SW_MARCH = $(CFG_CV_SW_MARCH)
+else
+CV_SW_MARCH = rv32imc
+$(warning CV_SW_MARCH not defined in either the shell environment, test.yaml or cfg.yaml)
+endif
+endif
+endif
+
+ifndef CV_SW_CC
+ifdef  TEST_CV_SW_CC
+CV_SW_CC = $(TEST_CV_SW_CC)
+else
+ifdef  CFG_CV_SW_CC
+CV_SW_CC = $(CFG_CV_SW_CC)
+else
+CV_SW_CC = gcc
+$(warning CV_SW_CC not defined in either the shell environment, test.yaml or cfg.yaml)
+endif
+endif
+endif
+
+ifndef CV_SW_CFLAGS
+ifdef  TEST_CV_SW_CFLAGS
+CV_SW_CFLAGS = $(TEST_CV_SW_CFLAGS)
+else
+ifdef  CFG_CV_SW_CFLAGS
+CV_SW_CFLAGS = $(CFG_CV_SW_CFLAGS)
+else
+$(warning CV_SW_CFLAGS not defined in either the shell environment, test.yaml or cfg.yaml)
+endif
+endif
+endif
+
+RISCV_PREFIX     = $(CV_SW_PREFIX)
+RISCV_EXE_PREFIX = $(RISCV)/bin/$(RISCV_PREFIX)
+RISCV_MARCH      = $(CV_SW_MARCH)
+RISCV_CC         = $(CV_SW_CC)
+RISCV_CFLAGS     = $(CV_SW_CFLAGS)
+
+ASM       ?= tests/asm
 
 CV_CORE       ?= CV32E40P
+CV_CORE_LC     = $(shell echo $(CV_CORE) | tr A-Z a-z)
 
-SIMULATOR     ?= $(CV_SIMULATOR)
+CV_CORE_PKG         := $(CV_CORE_LC)
+CV_CORE_MANIFEST    := $(CV_CORE_PKG)/cv32e40p_manifest.flist
 
-# Test-Program directores.
-# Relative path is used for Verilator which cannot seem to handle loooong pathnames.
-TEST_PROGRAM_PATH    = $(CORE_V_VERIF)/tests
-TEST_PROGRAM_RELPATH = tests
+export DESIGN_RTL_DIR = $(CV_CORE_PKG)/rtl
 
-# Default "custom test-program"
-TEST         ?= hello-world
+BSP                 = bsp
 
-# Common output directories
-RUN_INDEX               ?= 0
-SIM_RESULTS              = simulation_results
-SIM_TEST_RESULTS         = $(SIM_RESULTS)/$(TEST)
-SIM_RUN_RESULTS          = $(SIM_TEST_RESULTS)/$(RUN_INDEX)
-SIM_TEST_PROGRAM_RESULTS = $(SIM_RUN_RESULTS)/test_program
-
-TEST_PROGRAM=hello-world
-
-###############################################################################
-# Common Makefiles:
-#  -Variables for RTL and other dependencies (e.g. RISCV-DV)
-include ../ExternalRepos.mk
-#  -Core Firmware and the RISCV GCC Toolchain (SDK)
-include $(CORE_V_VERIF)/mk/Common.mk
-
-# verilator configuration
-VERILATOR           = verilator
-VERI_FLAGS         +=
-VERI_COMPILE_FLAGS += -Wno-BLKANDNBLK $(SV_CMP_FLAGS) # hope this doesn't hurt us in the long run
-VERI_TRACE         ?=
-VERI_OBJ_DIR       ?= cobj_dir
-#VERI_LOG_DIR       ?= cobj_dir/logs
-VERI_LOG_DIR       ?= $(SIM_TEST_PROGRAM_RESULTS)
-VERI_CFLAGS        += -O2
-
-# TB source files for the CV32E core
-TBSRC_HOME  := $(CORE_V_VERIF)/$(CV_CORE_LC)/tb
-TBSRC_TOP   := $(TBSRC_HOME)/core/tb_top.sv
+TBSRC_HOME  := tb
 TBSRC_CORE  := $(TBSRC_HOME)/core
-TBSRC_PKG   := $(TBSRC_CORE)/tb_riscv/include/perturbation_defines.sv
-TBSRC       := $(TBSRC_CORE)/tb_top.sv \
-               $(TBSRC_CORE)/cv32e40p_tb_wrapper.sv \
-               $(TBSRC_CORE)/mm_ram.sv \
-               $(TBSRC_CORE)/dp_ram.sv \
-               $(TBSRC_CORE)/tb_riscv/riscv_random_stall.sv \
-               $(TBSRC_CORE)/tb_riscv/riscv_random_interrupt_generator.sv \
-               $(TBSRC_CORE)/tb_riscv/riscv_rvalid_stall.sv \
-               $(TBSRC_CORE)/tb_riscv/riscv_gnt_stall.sv
-
 TBSRC_VERI  := $(TBSRC_CORE)/tb_top_verilator.sv \
                $(TBSRC_CORE)/cv32e40p_tb_wrapper.sv \
                $(TBSRC_CORE)/tb_riscv/riscv_rvalid_stall.sv \
@@ -62,78 +71,104 @@ TBSRC_VERI  := $(TBSRC_CORE)/tb_top_verilator.sv \
                $(TBSRC_CORE)/mm_ram.sv \
                $(TBSRC_CORE)/dp_ram.sv
 
-# RTL source files for the CV32E core
-# DESIGN_RTL_DIR is used by CV_CORE_MANIFEST file
-CV_CORE_PKG           := $(CORE_V_VERIF)/core-v-cores/$(CV_CORE_LC)
-# FIXME: temporarily using a local manifest for the core.
-#        This is BAD PRACTICE and will be fixed with
-#        https://github.com/openhwgroup/CV_CORE/pull/421 is resolved.
-CV_CORE_MANIFEST    := $(CV_CORE_PKG)/cv32e40p_manifest.flist
-export DESIGN_RTL_DIR = $(CV_CORE_PKG)/rtl
+TBSRC_PKG   := $(TBSRC_CORE)/tb_riscv/include/perturbation_defines.sv
 
-# Shorthand rules for convience
-CV_CORE_pkg: clone_$(CV_CORE_LC)_rtl
+# Compile compile flags for all simulators
+SV_CMP_FLAGS =
 
-tbsrc_pkg: $(TBSRC_PKG)
+TEST         ?= hello-world
+TEST_NAME=hello-world
+TEST_TEST_DIR=tests/programs/custom/hello-world
 
-tbsrc: $(TBSRC)
+TEST_PROGRAM_PATH    = tests/programs/custom
+TEST_PROGRAM_RELPATH = tests/programs/custom
 
-###############################################################################
+RUN_INDEX               ?= 0
 
+SIM_RESULTS              = simulation_results
+SIM_TEST_RESULTS         = $(SIM_RESULTS)/$(TEST)
+SIM_RUN_RESULTS          = $(SIM_TEST_RESULTS)/$(RUN_INDEX)
+SIM_TEST_PROGRAM_RESULTS = $(SIM_RUN_RESULTS)/test_program
+SIM_BSP_RESULTS          = $(SIM_TEST_PROGRAM_RESULTS)/bsp
 
-.PHONY: hello-world
-hello-world: $(SIMULATOR)-hello-world
-
-.PHONY: cv32_riscv_tests
-cv32_riscv_tests: $(SIMULATOR)-cv32_riscv_tests
-
-.PHONY: cv32_riscv_tests-gui
-cv32_riscv_tests-gui: $(SIMULATOR)-cv32_riscv_tests-gui
-
-.PHONY: cv32_riscv_compliance_tests
-cv32_riscv_compliance_tests: $(SIMULATOR)-cv32_riscv_compliance_tests
-
-.PHONY: cv32_riscv_compliance_tests-gui
-cv32_riscv_compliance_tests-gui: $(SIMULATOR)-cv32_riscv_compliance_tests-gui
-
-.PHONY: firmware
-firmware: $(SIMULATOR)-firmware
-
-.PHONY: firmware-gui
-firmware-gui: $(SIMULATOR)-firmware-gui
-
-.PHONY: unit-test
-unit-test: $(SIMULATOR)-unit-test
-
-.PHONY: unit-test-gui
-unit-test-gui: $(SIMULATOR)-unit-test-gui
-
-# assume verilator if no target chosen
-.DEFAULT_GOAL := sanity-veri-run
-
-all: clean_all sanity-veri-run dsim-sanity
-
-###############################################################################
-
-###############################################################################
-# Verilator
-
-# We first test if the user wants to to vcd dumping. This hacky part is required
-# because we need to conditionally compile the testbench (-DVCD_TRACE) and pass
-# the --trace flags to the verilator call
-#ifeq ($(findstring +vcd,$(VERI_FLAGS)),+vcd)
+VERILATOR           = verilator
+VERI_FLAGS         +=
+VERI_COMPILE_FLAGS += -Wno-BLKANDNBLK $(SV_CMP_FLAGS) # hope this doesn't hurt us in the long run
+VERI_TRACE         ?=
+VERI_OBJ_DIR       ?= cobj_dir
+VERI_LOG_DIR       ?= $(SIM_TEST_PROGRAM_RESULTS)
+VERI_CFLAGS        += -O2
 
 ifneq (${WAVES}, 0)
 VERI_TRACE="--trace"
 VERI_CFLAGS+="-DVCD_TRACE"
 endif
 
-verilate: testbench_verilator
+SIM_RESULTS              = simulation_results
+SIM_TEST_RESULTS         = $(SIM_RESULTS)/$(TEST)
+
+# corev-dv tests needs an added run_index_suffix, blank for other tests
+ifeq ($(shell echo $(TEST) | head -c 6),corev_)
+export OPT_RUN_INDEX_SUFFIX=_$(RUN_INDEX)
+endif
+
+# Single rule for compiling test source into an ELF file
+# For directed tests, TEST_FILES gathers all of the .S and .c files in a test directory
+# For corev_ tests, TEST_FILES will only point to the specific .S for the RUN_INDEX and TEST_NAME provided to make
+ifeq ($(shell echo $(TEST) | head -c 6),corev_)
+TEST_FILES        = $(filter %.c %.S,$(wildcard  $(SIM_TEST_PROGRAM_RESULTS)/$(TEST_NAME)$(OPT_RUN_INDEX_SUFFIX).S))
+else
+TEST_FILES        = $(filter %.c %.S,$(wildcard  $(TEST_TEST_DIR)/*))
+endif
+
+# If a test defines "default_cflags" in its yaml, then it is responsible to define ALL flags
+# Otherwise add the default cflags in the variable CFLAGS defined above
+ifneq ($(TEST_DEFAULT_CFLAGS),)
+TEST_CFLAGS += $(TEST_DEFAULT_CFLAGS)
+else
+TEST_CFLAGS += $(CFLAGS)
+endif
+
+# Optionally use linker script provided in test directory
+# this must be evaluated at access time, so ifeq/ifneq does
+# not get parsed correctly
+TEST_RESULTS_LD = $(addprefix $(SIM_TEST_PROGRAM_RESULTS)/, link.ld)
+TEST_LD         = $(addprefix $(TEST_TEST_DIR)/, link.ld)
+
+LD_LIBRARY 	= $(if $(wildcard $(TEST_RESULTS_LD)),-L $(SIM_TEST_PROGRAM_RESULTS),$(if $(wildcard $(TEST_LD)),-L $(TEST_TEST_DIR),))
+LD_FILE 	= $(if $(wildcard $(TEST_RESULTS_LD)),$(TEST_RESULTS_LD),$(if $(wildcard $(TEST_LD)),$(TEST_LD),$(BSP)/link.ld))
+LD_LIBRARY += -L $(SIM_BSP_RESULTS)
+
+CORE_TEST_DIR                        = tests/programs
+RISCV_TESTS                          = $(CORE_TEST_DIR)/riscv_tests
+RISCV_COMPLIANCE_TESTS               = $(CORE_TEST_DIR)/riscv_compliance_tests
+FIRMWARE                             = $(CORE_TEST_DIR)/firmware
+FIRMWARE_OBJS            = $(addprefix $(FIRMWARE)/, \
+                             start.o print.o sieve.o multest.o stats.o)
+FIRMWARE_TEST_OBJS       = $(addsuffix .o, \
+                             $(basename $(wildcard $(RISCV_TESTS)/rv32ui/*.S)) \
+                             $(basename $(wildcard $(RISCV_TESTS)/rv32um/*.S)) \
+                             $(basename $(wildcard $(RISCV_TESTS)/rv32uc/*.S)))
+COMPLIANCE_TEST_OBJS     = $(addsuffix .o, \
+                             $(basename $(wildcard $(RISCV_COMPLIANCE_TESTS)/*.S)))
+
+
+default: sanity-veri-run
 
 sanity-veri-run:
 	make veri-test TEST=hello-world
 
-testbench_verilator: CV_CORE_pkg $(TBSRC_VERI) $(TBSRC_PKG)
+veri-test: testbench_verilator $(TEST_PROGRAM_PATH)/$(TEST)/$(TEST).hex
+	@echo "$(BANNER)"
+	@echo "* Running with Verilator: logfile in $(SIM_TEST_RESULTS)/$(TEST).log"
+	@echo "$(BANNER)"
+	mkdir -p $(VERI_LOG_DIR)
+	$(SIM_TEST_RESULTS)/verilator_executable \
+		$(VERI_FLAGS) \
+		"+firmware=$(TEST_PROGRAM_RELPATH)/$(TEST)/$(TEST).hex" \
+		| tee $(VERI_LOG_DIR)/$(TEST).log
+
+testbench_verilator: core $(TBSRC_VERI) $(TBSRC_PKG)
 	@echo "$(BANNER)"
 	@echo "* Compiling CORE TB and CV32E40P with Verilator"
 	@echo "$(BANNER)"
@@ -152,57 +187,110 @@ testbench_verilator: CV_CORE_pkg $(TBSRC_VERI) $(TBSRC_PKG)
 	mkdir -p $(SIM_TEST_RESULTS)
 	mv $(VERI_OBJ_DIR)/Vtb_top_verilator $(SIM_TEST_RESULTS)/verilator_executable
 
-veri-test: verilate $(TEST_PROGRAM_PATH)/$(TEST)/$(TEST).hex
-	@echo "$(BANNER)"
-	@echo "* Running with Verilator: logfile in $(SIM_TEST_RESULTS)/$(TEST).log"
-	@echo "$(BANNER)"
-	mkdir -p $(VERI_LOG_DIR)
-	$(SIM_TEST_RESULTS)/verilator_executable \
-		$(VERI_FLAGS) \
-		"+firmware=$(TEST_PROGRAM_RELPATH)/$(TEST)/$(TEST).hex" \
-		| tee $(VERI_LOG_DIR)/$(TEST).log
-
-# verilator specific cleanup
-veri-clean: verilate-clean
-
-verilate-clean: tc-clean
-	if [ -d $(SIM_RESULTS) ]; then rm -r $(SIM_RESULTS); fi
-	if [ -d $(VERI_OBJ_DIR) ]; then rm -r $(VERI_OBJ_DIR); fi
-	rm -rf testbench_verilator
-	if [ -e memory_dump.bin ]; then rm memory_dump.bin; fi
-
 ###############################################################################
-# CV_CORE RTL dependencies
-
-clone_$(CV_CORE_LC)_rtl:
+# Rule to generate hex (loadable by simulators) from elf
+#    $@ is the file being generated.
+#    $< is first prerequiste.
+#    $^ is all prerequistes.
+#    $* is file_name (w/o extension) of target
+%.hex: %.elf
 	@echo "$(BANNER)"
-	@echo "* Cloning CV32E40P RTL model"
+	@echo "* Generating hexfile, readelf and objdump files"
 	@echo "$(BANNER)"
-	$(CLONE_CV_CORE_CMD)
+	$(RISCV_EXE_PREFIX)objcopy -O verilog \
+		$< \
+		$@
+	$(RISCV_EXE_PREFIX)readelf -a $< > $*.readelf
+	$(RISCV_EXE_PREFIX)objdump \
+		-d \
+		-M no-aliases \
+		-M numeric \
+		-S \
+		$*.elf > $*.objdump
+	$(RISCV_EXE_PREFIX)objdump \
+    	-d \
+        -S \
+		-M no-aliases \
+		-M numeric \
+        -l \
+		$*.elf | ${CORE_V_VERIF}/bin/objdump2itb - > $*.itb
 
-###############################################################################
-# general targets
-.PHONY: tc-clean
+ifeq ($(TEST_FIXED_ELF),1)
+%.elf:
+	@echo "$(BANNER)"
+	@echo "* Copying fixed ELF test program to $(@)"
+	@echo "$(BANNER)"
+	mkdir -p $(SIM_TEST_PROGRAM_RESULTS)
+	cp $(TEST_TEST_DIR)/$(TEST).elf $@
+else
+%.elf: $(TEST_FILES)
+	mkdir -p $(SIM_TEST_PROGRAM_RESULTS)
+	make bsp
+	@echo "$(BANNER)"
+	@echo "* Compiling test-program $@"
+	@echo "$(BANNER)"
+	$(RISCV_EXE_PREFIX)$(RISCV_CC) \
+		$(CFG_CFLAGS) \
+		$(TEST_CFLAGS) \
+		$(RISCV_CFLAGS) \
+		-I $(ASM) \
+		-I $(BSP) \
+		-o $@ \
+		-nostartfiles \
+		$(TEST_FILES) \
+		-T $(LD_FILE) \
+		$(LD_LIBRARY) \
+		-lcv-verif
+endif
 
-# clean up simulation results
+.PHONY: bsp
+
+bsp:
+	@echo "$(BANNER)"
+	@echo "* Compiling the BSP at $(SIM_BSP_RESULTS)"
+	@echo "$(BANNER)"
+	mkdir -p $(SIM_BSP_RESULTS)
+	cp $(BSP)/Makefile $(SIM_BSP_RESULTS)
+	make -C $(SIM_BSP_RESULTS) \
+		VPATH=../../../../../$(BSP) \
+		RISCV=$(RISCV) \
+		RISCV_PREFIX=$(RISCV_PREFIX) \
+		RISCV_EXE_PREFIX=$(RISCV_EXE_PREFIX) \
+		RISCV_MARCH=$(RISCV_MARCH) \
+		RISCV_CC=$(RISCV_CC) \
+		RISCV_CFLAGS="$(RISCV_CFLAGS)" \
+		all
+
+core:
+	@echo "$(BANNER)"
+	@echo "Initializing and updating core submodule"
+	@echo "$(BANNER)"
+	@git submodule init
+	@git submodule update
+
+clean: clean-sim-results clean-test-programs verilate-clean firmware-clean
+
 clean-sim-results:
 	rm -rf $(SIM_RESULTS)
 
 # clean up toolchain generated files
 clean-test-programs:
-	find $(CORE_V_VERIF)/$(CV_CORE_LC)/tests/programs -name *.o       -exec rm {} \;
-	find $(CORE_V_VERIF)/$(CV_CORE_LC)/tests/programs -name *.hex     -exec rm {} \;
-	find $(CORE_V_VERIF)/$(CV_CORE_LC)/tests/programs -name *.elf     -exec rm {} \;
-	find $(CORE_V_VERIF)/$(CV_CORE_LC)/tests/programs -name *.map     -exec rm {} \;
-	find $(CORE_V_VERIF)/$(CV_CORE_LC)/tests/programs -name *.readelf -exec rm {} \;
-	find $(CORE_V_VERIF)/$(CV_CORE_LC)/tests/programs -name *.objdump -exec rm {} \;
-	find $(CORE_V_VERIF)/$(CV_CORE_LC)/tests/programs -name corev_*.S -exec rm {} \;
+	find tests/programs -name *.o       -exec rm {} \;
+	find tests/programs -name *.hex     -exec rm {} \;
+	find tests/programs -name *.elf     -exec rm {} \;
+	find tests/programs -name *.map     -exec rm {} \;
+	find tests/programs -name *.readelf -exec rm {} \;
+	find tests/programs -name *.objdump -exec rm {} \;
+	find tests/programs -name corev_*.S -exec rm {} \;
 
-.PHONY: clean clean_all distclean
-clean: clean-sim-results clean-test-programs questa-clean verilate-clean vcs-clean firmware-clean dsim-clean xrun-clean vcs-clean riviera-clean
 
-distclean: clean
-	rm -rf riscv-fesvr riscv-isa-sim $(CV_CORE_PKG) work
+# Should have a 'tc-clean' here
+verilate-clean:
+	if [ -d $(SIM_RESULTS) ]; then rm -r $(SIM_RESULTS); fi
+	if [ -d $(VERI_OBJ_DIR) ]; then rm -r $(VERI_OBJ_DIR); fi
+	rm -rf testbench_verilator
+	if [ -e memory_dump.bin ]; then rm memory_dump.bin; fi
 
-clean_all: distclean
-#endend
+firmware-clean:
+	rm -vrf $(addprefix $(FIRMWARE)/firmware., elf bin hex map) \
+		$(FIRMWARE_OBJS) $(FIRMWARE_TEST_OBJS) $(COMPLIANCE_TEST_OBJS)
