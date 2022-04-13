@@ -2,24 +2,21 @@
 BANNER=*******************************************************************************************
 
 # Variables
-WAVES			?= 0
+WAVES	?= 0
 
 # Programs
-MAKE			 = make
-RISCV_PREFIX     = riscv32-corev-elf
-RISCV_MARCH      = rv32imc
-RISCV_CC         = $(RISCV_PREFIX)-gcc
+MAKE			= make >/dev/null || make
+RISCV_PREFIX	= riscv32-corev-elf
+RISCV_MARCH		= rv32imc
+RISCV_CC		= $(RISCV_PREFIX)-gcc
 
 ASM				= tests/asm
 
-CV_CORE				?= cv32e40p
-CV_CORE_MANIFEST    := $(CV_CORE)/cv32e40p_manifest.flist
-export DESIGN_RTL_DIR = $(CV_CORE)/rtl
 
-BSP                 = bsp
+BSP	= bsp
 
 TBSRC_DIR	:= tb
-TBSRC	 	:=	$(TBSRC_DIR)/tb_top_verilator.sv \
+TBSRC		:=	$(TBSRC_DIR)/tb_top_verilator.sv \
 				$(TBSRC_DIR)/cv32e40p_tb_wrapper.sv \
 				$(TBSRC_DIR)/tb_riscv/riscv_rvalid_stall.sv \
 				$(TBSRC_DIR)/tb_riscv/riscv_gnt_stall.sv \
@@ -27,9 +24,6 @@ TBSRC	 	:=	$(TBSRC_DIR)/tb_top_verilator.sv \
 				$(TBSRC_DIR)/dp_ram.sv
 
 TBSRC_PKG   :=	$(TBSRC_DIR)/tb_riscv/include/perturbation_defines.sv
-
-# Compile compile flags for all simulators
-SV_CMP_FLAGS =
 
 TEST         ?= hello-world
 TEST_DIR=tests/programs/$(TEST)
@@ -39,10 +33,10 @@ TEST_PROGRAM_PATH    = tests/programs
 RUN_INDEX               ?= 0
 
 SIM_DIR					= sim
-SIM_RESULTS              = simulation_results
-SIM_TEST_RESULTS         = $(SIM_RESULTS)/$(TEST)
-SIM_RUN_RESULTS          = $(SIM_TEST_RESULTS)/$(RUN_INDEX)
-SIM_BSP_RESULTS          = $(SIM_TEST_PROGRAM_RESULTS)/bsp
+SIM_RESULTS				= simulation_results
+SIM_TEST_RESULTS		= $(SIM_RESULTS)/$(TEST)
+SIM_RUN_RESULTS			= $(SIM_TEST_RESULTS)/$(RUN_INDEX)
+SIM_BSP_RESULTS			= $(SIM_TEST_PROGRAM_RESULTS)/bsp
 
 VERILATOR           = verilator
 VERI_COMPILE_FLAGS += -Wno-BLKANDNBLK
