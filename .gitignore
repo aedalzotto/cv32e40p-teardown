@@ -1,1 +1,3 @@
 .vscode
+testbench/testbench
+testbench/cobj_dir/*
