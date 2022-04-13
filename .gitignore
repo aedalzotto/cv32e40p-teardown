@@ -1,3 +1,6 @@
 .vscode
 testbench/testbench
 testbench/cobj_dir/*
+*.elf
+*.o
+*.a
