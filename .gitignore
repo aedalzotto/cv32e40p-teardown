@@ -1,6 +1,13 @@
 .vscode
 testbench/testbench
 testbench/cobj_dir/*
+software/*.hex
+software/*.itb
+software/*.objdump
+software/*.readelf
 *.elf
 *.o
 *.a
+*.log
+*.bin
+*.vcd
