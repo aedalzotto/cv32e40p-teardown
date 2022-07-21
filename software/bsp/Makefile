@@ -1,7 +1,7 @@
 # Constants
 BANNER=*******************************************************************************************
 
-RISCV_PREFIX	= riscv32-corev-elf
+RISCV_PREFIX	= riscv64-elf
 RISCV_MARCH		= rv32imc
 RISCV_CC		= $(RISCV_PREFIX)-gcc
 RISCV_AR		= $(RISCV_PREFIX)-ar
@@ -9,7 +9,7 @@ RISCV_AR		= $(RISCV_PREFIX)-ar
 SRC = crt0.S handlers.S syscalls.c vectors.S
 OBJ = crt0.o handlers.o syscalls.o vectors.o
 LIBCV-VERIF = libcv-verif.a 
-CFLAGS ?= -Os -g -static -mabi=ilp32 -march=rv32imc -Wall -pedantic
+CFLAGS ?= -Os -g -static -mabi=ilp32 -march=rv32imc_zicsr -Wall -pedantic
 
 $(LIBCV-VERIF): $(OBJ)
 	@echo "* Linking the BSP"

@@ -7,8 +7,8 @@ MAKE	= make -j`nproc`
 MV		= mv
 
 # Programs and commands
-RISCV_PREFIX	= riscv32-corev-elf
-RISCV_MARCH		= rv32imc
+RISCV_PREFIX	= riscv64-elf
+RISCV_MARCH		= rv32imc_zicsr
 RISCV_CC		= $(RISCV_PREFIX)-gcc
 RISCV_AR		= $(RISCV_PREFIX)-ar
 
@@ -24,8 +24,12 @@ LD_FILE		= $(BSP)/link.ld
 LD_LIBRARY	= -L $(BSP)
 
 TEST_DIR	= programs/$(TEST)
-TEST_SRC	= $(filter %.c %.S,$(wildcard  $(TEST_DIR)/*))
-TEST_OBJ	= $(patsubst %.c %.S, %.o, $(TEST_SRC))
+TEST_SRCC	= $(filter %.c,$(wildcard  $(TEST_DIR)/*))
+TEST_SRCS	= $(filter %.S,$(wildcard  $(TEST_DIR)/*))
+TEST_OBJ	= $(patsubst %.c, %.o, $(TEST_SRCC))
+TEST_OBJ   += $(patsubst %.S, %.o, $(TEST_SRCS))
+
+CFLAGS = -Os -mabi=ilp32 -march=$(RISCV_MARCH) -Wall
 
 all: $(TEST).hex $(TEST).readelf $(TEST).objdump $(TEST).itb
 
@@ -70,15 +74,17 @@ all: $(TEST).hex $(TEST).readelf $(TEST).objdump $(TEST).itb
 		$(TEST_OBJ) \
 		-T $(LD_FILE) \
 		$(LD_LIBRARY) \
+		-march=rv32i \
+		-mabi=ilp32 \
 		-lcv-verif
 
 %.o : %.c
 	@echo "* Compiling $<"
-	@$(RISCV_CC) -c $< -o $@
+	@$(RISCV_CC) -c $< -o $@ $(CFLAGS)
 	
 %.o : %.S
 	@echo "* Assemblying $<"
-	@$(RISCV_CC) -c $< -o $@
+	@$(RISCV_CC) -c $< -o $@ $(CFLAGS)
 
 $(LIBCV-VERIF):
 	@$(MAKE) -s -C $(BSP)
